@@ -1,0 +1,29 @@
+# Quantitative Momentum Strategy for Indian Markets
+# Python 3.10+
+
+# Data Fetching & Analysis
+pandas>=2.0.0
+numpy>=1.24.0
+yfinance>=0.2.30
+nsetools>=1.0.4
+
+# Technical Analysis
+ta-lib>=0.4.0
+scipy>=1.11.0
+scikit-learn>=1.3.0
+
+# Backtesting
+backtesting>=0.3.3
+
+# Email & Notifications
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# Data Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.17.0
+
+# Utilities
+pytz>=2023.3
+python-dateutil>=2.8.0
