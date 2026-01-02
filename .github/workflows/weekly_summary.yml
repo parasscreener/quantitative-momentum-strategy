@@ -1,0 +1,39 @@
+name: Weekly Strategy Summary
+
+on:
+  schedule:
+    # Every Friday at 6:00 PM IST = Friday 12:30 PM UTC
+    - cron: '30 12 * * 5'
+  workflow_dispatch:
+
+jobs:
+  weekly_summary:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          pip install -q pandas numpy yfinance nsetools
+
+      - name: Generate Weekly Summary
+        run: python scripts/weekly_summary.py
+
+      - name: Send Weekly Report
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.GMAIL_SERVER }}
+          server_port: 465
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_PASSWORD }}
+          subject: 'Weekly Momentum Strategy Summary'
+          to: paras.m.parmar@gmail.com
+          from: ${{ secrets.GMAIL_USER }}
+          html_body: file://output/weekly_summary.html
