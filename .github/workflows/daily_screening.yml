@@ -1,0 +1,141 @@
+name: Daily Momentum Stock Screening
+
+on:
+  schedule:
+    # 9:30 AM IST = 4:00 AM UTC (UTC is 5.5 hours behind IST)
+    - cron: '0 4 * * 1-5'  # Monday to Friday at 4:00 AM UTC
+
+  # Allow manual trigger via GitHub UI
+  workflow_dispatch:
+
+jobs:
+  stock_screening:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ['3.10']
+
+    steps:
+      # Checkout repository
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # Set up Python environment
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      # Install dependencies
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+
+      # Run stock screening
+      - name: Run Stock Screening
+        env:
+          NIFTY_UNIVERSE: nifty_500
+          PORTFOLIO_SIZE: 40
+          REBALANCE_FREQ: quarterly
+        run: python scripts/screening.py
+
+      # Generate HTML report
+      - name: Generate HTML Report
+        run: python scripts/generate_report.py
+
+      # Upload artifacts
+      - name: Upload Screening Results
+        uses: actions/upload-artifact@v3
+        with:
+          name: screening-results
+          path: |
+            output/screening_results.csv
+            output/report.html
+          retention-days: 30
+
+      # Send email with results
+      - name: Send Email Report
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.GMAIL_SERVER }}
+          server_port: 465
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_PASSWORD }}
+          subject: 'Quantitative Momentum Strategy - Daily Screening Report'
+          to: paras.m.parmar@gmail.com
+          from: ${{ secrets.GMAIL_USER }}
+          body: |
+            Daily Momentum Stock Screening Report
+            Generated: $(date '+%Y-%m-%d %H:%M:%S IST')
+
+            Please find attached the screening results for today.
+
+            Strategy Details:
+            - Universe: Nifty 500
+            - Momentum Lookback: 12 months (skip last month)
+            - Quality Filter: FIP Score (Frog-in-Pan algorithm)
+            - Portfolio Size: 40 stocks (equal-weight)
+            - Rebalance: Quarterly (Feb end, May end, Aug end, Nov end)
+
+            Key Indicators in Report:
+            1. Momentum Score: 12-month cumulative return
+            2. FIP Score: Quality of momentum path (lower is better)
+            3. Entry Signal: Boolean for recommended entry
+            4. Stop Loss: 15% below entry price
+            5. Holding Period: 3 months
+
+            For detailed analysis, see attached HTML report.
+          html_body: file://output/report.html
+          attachments: output/screening_results.csv
+
+      # Log summary to console
+      - name: Log Summary
+        run: |
+          echo "✅ Daily screening completed successfully"
+          echo "📊 Results saved to output directory"
+          echo "📧 Report sent to paras.m.parmar@gmail.com"
+          head -20 output/screening_results.csv
+
+  backtest:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'  # Only on manual trigger
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run 15-Year Backtest
+        run: python scripts/backtest_15yr.py
+
+      - name: Upload Backtest Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: backtest-results
+          path: output/backtest_report_15yr.html
+          retention-days: 90
+
+      - name: Send Backtest Report
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.GMAIL_SERVER }}
+          server_port: 465
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_PASSWORD }}
+          subject: '15-Year Backtest Complete - Momentum Strategy'
+          to: paras.m.parmar@gmail.com
+          from: ${{ secrets.GMAIL_USER }}
+          html_body: file://output/backtest_report_15yr.html
