@@ -48,7 +48,7 @@ jobs:
 
       # Upload artifacts
       - name: Upload Screening Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: screening-results
           path: |
@@ -122,7 +122,7 @@ jobs:
         run: python scripts/backtest_15yr.py
 
       - name: Upload Backtest Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: backtest-results
           path: output/backtest_report_15yr.html
