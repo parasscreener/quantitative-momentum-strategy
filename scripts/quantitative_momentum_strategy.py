@@ -163,13 +163,13 @@ class QuantitativeMomentumStrategy:
         if not results:
             return pd.DataFrame()
 
-        df = pd.DataFrame(results)
+        df = pd.DataFrame(results).reset_index(drop=True)
 
         # Rank by momentum
         df['Momentum_Rank'] = df['Momentum_12m'].rank(ascending=False, pct=True)
 
         # Filter top momentum stocks
-        top_momentum = df[df['Momentum_Rank'] <= self.momentum_percentile]
+        top_momentum = df[df['Momentum_Rank'] <= self.momentum_percentile].reset_index(drop=True)
 
         if len(top_momentum) == 0:
             return pd.DataFrame()
@@ -184,7 +184,7 @@ class QuantitativeMomentumStrategy:
         )
 
         # Select top portfolio_size stocks
-        portfolio = top_momentum.nlargest(self.portfolio_size, 'Combined_Score')
+        portfolio = top_momentum.nlargest(self.portfolio_size, 'Combined_Score').reset_index(drop=True)
 
         return portfolio.sort_values('Combined_Score', ascending=False)
 
