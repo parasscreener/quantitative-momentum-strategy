@@ -1,0 +1,42 @@
+name: Quarterly Rebalance Check
+
+on:
+  schedule:
+    # Last day of Feb, May, Aug, Nov at 2:00 PM IST = 8:30 AM UTC
+    - cron: '30 8 28-31 2,5,8,11 *'
+  workflow_dispatch:
+
+jobs:
+  rebalance_check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          pip install -q pandas numpy yfinance nsetools
+
+      - name: Check Rebalance Dates
+        run: python scripts/check_rebalance_dates.py
+
+      - name: Generate Rebalance Report
+        run: python scripts/quarterly_rebalance.py
+
+      - name: Send Rebalance Alert
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.GMAIL_SERVER }}
+          server_port: 465
+          username: ${{ secrets.GMAIL_USER }}
+          password: ${{ secrets.GMAIL_PASSWORD }}
+          subject: 'Quarterly Rebalance Alert - Action Required'
+          to: paras.m.parmar@gmail.com
+          from: ${{ secrets.GMAIL_USER }}
+          html_body: file://output/rebalance_alert.html
