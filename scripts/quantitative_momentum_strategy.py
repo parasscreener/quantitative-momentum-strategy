@@ -121,72 +121,69 @@ class QuantitativeMomentumStrategy:
         except:
             return None
 
-    def screen_momentum_stocks(self, stock_list, date=None):
-        """
-        Screen stocks based on momentum and quality
-
-        Returns DataFrame with ranked stocks
-        """
-        if date is None:
-            date = datetime.now()
-
-        results = []
-
-        for stock in stock_list:
-            try:
-                # Download historical data (2 years minimum)
-                end_date = date
-                start_date = date - timedelta(days=730)
-
-                stock_data = yf.download(stock, start=start_date, end=end_date, 
-                                         progress=False, interval='1d')
-
-                if len(stock_data) < 252:
-                    continue
-
-                # Calculate metrics
-                momentum = self.calculate_generic_momentum(stock_data)
-                fip_score = self.calculate_fip_score(stock_data)
-
-                if momentum is not None and fip_score is not None:
-                    results.append({
-                        'Symbol': stock,
-                        'Momentum_12m': momentum,
-                        'FIP_Score': fip_score,
-                        'Price': stock_data['Close'].iloc[-1],
-                        'Date': date,
-                        'Volume': stock_data['Volume'].iloc[-1]
-                    })
-            except Exception as e:
+   def screen_momentum_stocks(self, stock_list, date=None):
+    """
+    Screen stocks for momentum signals with fixed pandas indexing
+    """
+    if date is None:
+        date = datetime.now()
+    
+    results = []
+    for stock in stock_list:
+        try:
+            end_date = date
+            start_date = date - timedelta(days=730)
+            stock_data = yf.download(stock, start=start_date, end=end_date, 
+                                     progress=False, interval='1d')
+            if len(stock_data) < 252:
                 continue
-
-        if not results:
-            return pd.DataFrame()
-
-        df = pd.DataFrame(results).reset_index(drop=True)
-
-        # Rank by momentum
-        df['Momentum_Rank'] = df['Momentum_12m'].rank(ascending=False, pct=True)
-
-        # Filter top momentum stocks
-        top_momentum = df[df['Momentum_Rank'] <= self.momentum_percentile].reset_index(drop=True)
-
-        if len(top_momentum) == 0:
-            return pd.DataFrame()
-
-        # Rank by FIP (lower is better)
-        top_momentum['FIP_Rank'] = top_momentum['FIP_Score'].rank(ascending=True, pct=True)
-
-        # Combined score: 70% Momentum, 30% FIP quality
-        top_momentum['Combined_Score'] = (
-            0.70 * (1 - top_momentum['Momentum_Rank']) +
-            0.30 * (1 - top_momentum['FIP_Rank'])
-        )
-
-        # Select top portfolio_size stocks
-        portfolio = top_momentum.nlargest(self.portfolio_size, 'Combined_Score').reset_index(drop=True)
-
-        return portfolio.sort_values('Combined_Score', ascending=False)
+            
+            momentum = self.calculate_generic_momentum(stock_data)
+            fip_score = self.calculate_fip_score(stock_data)
+            
+            if momentum is not None and fip_score is not None:
+                results.append({
+                    'Symbol': stock,
+                    'Momentum_12m': momentum,
+                    'FIP_Score': fip_score,
+                    'Price': stock_data['Close'].iloc[-1],
+                    'Date': date,
+                    'Volume': stock_data['Volume'].iloc[-1]
+                })
+        except Exception as e:
+            continue
+    
+    if not results:
+        return pd.DataFrame()
+    
+    # Create dataframe and immediately copy to ensure fresh data
+    df = pd.DataFrame(results).copy()
+    df = df.reset_index(drop=True)
+    
+    # Calculate momentum rank on fresh dataframe
+    df['Momentum_Rank'] = df['Momentum_12m'].rank(ascending=False, pct=True)
+    
+    # Filter and copy to ensure clean indices
+    top_momentum = df[df['Momentum_Rank'] <= self.momentum_percentile].copy()
+    top_momentum = top_momentum.reset_index(drop=True)
+    
+    if len(top_momentum) == 0:
+        return pd.DataFrame()
+    
+    # Calculate FIP rank on clean data
+    top_momentum['FIP_Rank'] = top_momentum['FIP_Score'].rank(ascending=True, pct=True)
+    
+    # Calculate combined score
+    top_momentum['Combined_Score'] = (
+        0.70 * (1 - top_momentum['Momentum_Rank']) +
+        0.30 * (1 - top_momentum['FIP_Rank'])
+    )
+    
+    # Get top portfolio and reset index
+    portfolio = top_momentum.nlargest(self.portfolio_size, 'Combined_Score').copy()
+    portfolio = portfolio.reset_index(drop=True)
+    
+    return portfolio.sort_values('Combined_Score', ascending=False)
 
     def get_rebalance_dates(self, start_date, end_date):
         """
