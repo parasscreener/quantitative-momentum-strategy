@@ -121,7 +121,7 @@ class QuantitativeMomentumStrategy:
         except:
             return None
 
-       def screen_momentum_stocks(self, stock_list, date=None):
+    def screen_momentum_stocks(self, stock_list, date=None):
         """
         Screen stocks for momentum signals with fixed pandas indexing
         """
