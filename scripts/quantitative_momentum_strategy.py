@@ -161,6 +161,7 @@ class QuantitativeMomentumStrategy:
         df = df.reset_index(drop=True)
         
         # Calculate momentum rank on fresh dataframe
+        df = df.reset_index(drop=True)
         df['Momentum_Rank'] = df['Momentum_12m'].rank(ascending=False, pct=True)
         
         # Filter and copy to ensure clean indices
