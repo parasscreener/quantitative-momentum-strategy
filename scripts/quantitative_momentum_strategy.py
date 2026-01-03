@@ -123,7 +123,7 @@ class QuantitativeMomentumStrategy:
 
     def screen_momentum_stocks(self, stock_list, date=None):
         """
-        Screen stocks for momentum signals with fixed pandas indexing
+        Screen stocks for momentum signals
         """
         if date is None:
             date = datetime.now()
@@ -144,34 +144,45 @@ class QuantitativeMomentumStrategy:
                 if momentum is not None and fip_score is not None:
                     results.append({
                         'Symbol': stock,
-                        'Momentum_12m': momentum,
-                        'FIP_Score': fip_score,
-                        'Price': stock_data['Close'].iloc[-1],
+                        'Momentum_12m': float(momentum),
+                        'FIP_Score': float(fip_score),
+                        'Price': float(stock_data['Close'].iloc[-1]),
                         'Date': date,
-                        'Volume': stock_data['Volume'].iloc[-1]
+                        'Volume': float(stock_data['Volume'].iloc[-1])
                     })
-            except Exception as e:
+            except Exception:
                 continue
         
         if not results:
             return pd.DataFrame()
         
-        # Create dataframe and immediately copy to ensure fresh data
-        df = pd.DataFrame(results).copy()
+        # Create dataframe with explicit float types
+        df = pd.DataFrame(results)
+        df['Momentum_12m'] = df['Momentum_12m'].astype('float64')
+        df['FIP_Score'] = df['FIP_Score'].astype('float64')
         df = df.reset_index(drop=True)
         
-        # Calculate momentum rank on fresh dataframe
+        # Remove any NaN values before ranking
+        df = df.dropna(subset=['Momentum_12m'])
         df = df.reset_index(drop=True)
+        
+        # Rank with clean data
         df['Momentum_Rank'] = df['Momentum_12m'].rank(ascending=False, pct=True)
         
-        # Filter and copy to ensure clean indices
+        # Filter by momentum percentile
+        if self.momentum_percentile is None:
+            self.momentum_percentile = 0.9
         top_momentum = df[df['Momentum_Rank'] <= self.momentum_percentile].copy()
         top_momentum = top_momentum.reset_index(drop=True)
         
         if len(top_momentum) == 0:
             return pd.DataFrame()
         
-        # Calculate FIP rank on clean data
+        # Remove any NaN values before second ranking
+        top_momentum = top_momentum.dropna(subset=['FIP_Score'])
+        top_momentum = top_momentum.reset_index(drop=True)
+        
+        # Rank FIP score
         top_momentum['FIP_Rank'] = top_momentum['FIP_Score'].rank(ascending=True, pct=True)
         
         # Calculate combined score
@@ -180,7 +191,9 @@ class QuantitativeMomentumStrategy:
             0.30 * (1 - top_momentum['FIP_Rank'])
         )
         
-        # Get top portfolio and reset index
+        # Get top portfolio
+        if self.portfolio_size is None:
+            self.portfolio_size = 40
         portfolio = top_momentum.nlargest(self.portfolio_size, 'Combined_Score').copy()
         portfolio = portfolio.reset_index(drop=True)
         
